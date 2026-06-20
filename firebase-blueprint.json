@@ -1,0 +1,28 @@
+{
+  "collections": [
+    {
+      "collection_name": "products",
+      "fields": [
+        { "name": "name", "type": "string" },
+        { "name": "price", "type": "number" },
+        { "name": "image", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "category", "type": "string" },
+        { "name": "color", "type": "string" },
+        { "name": "createdAt", "type": "timestamp" }
+      ]
+    },
+    {
+      "collection_name": "orders",
+      "fields": [
+        { "name": "userId", "type": "string" },
+        { "name": "total", "type": "number" },
+        { "name": "status", "type": "string" },
+        { "name": "items", "type": "array" },
+        { "name": "createdAt", "type": "timestamp" },
+        { "name": "customerName", "type": "string" },
+        { "name": "customerEmail", "type": "string" }
+      ]
+    }
+  ]
+}

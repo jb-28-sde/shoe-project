@@ -1,0 +1,6 @@
+{
+  "name": "Jute Le Lo E-Commerce",
+  "description": "A vibrant online sneaker store featuring a sleek shopping experience, product details, cart, and checkout flow.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
