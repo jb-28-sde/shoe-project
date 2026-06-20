@@ -61,5 +61,22 @@ service cloud.firestore {
       allow update: if isAdmin(); // Admins can update order status
       allow delete: if isAdmin();
     }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['productId', 'userId', 'userName', 'rating', 'text', 'createdAt']) &&
+             data.keys().size() == 6 &&
+             data.productId is string && data.productId.size() > 0 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.text is string && data.text.size() <= 1000 &&
+             data.createdAt is timestamp;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidReview(incoming()) && incoming().createdAt == request.time;
+      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
   }
 }

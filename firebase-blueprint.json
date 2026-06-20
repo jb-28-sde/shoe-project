@@ -23,6 +23,17 @@
         { "name": "customerName", "type": "string" },
         { "name": "customerEmail", "type": "string" }
       ]
+    },
+    {
+      "collection_name": "reviews",
+      "fields": [
+        { "name": "productId", "type": "string" },
+        { "name": "userId", "type": "string" },
+        { "name": "userName", "type": "string" },
+        { "name": "rating", "type": "number" },
+        { "name": "text", "type": "string" },
+        { "name": "createdAt", "type": "timestamp" }
+      ]
     }
   ]
 }

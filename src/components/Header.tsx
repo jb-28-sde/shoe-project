@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, Menu, Search, X, Heart, Shield } from 'lucide-react';
+import { ShoppingCart, Menu, Search, X, Heart, Shield, Package } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface HeaderProps {
@@ -56,10 +56,13 @@ export function Header({ cartItemCount, setViewState, currentView }: HeaderProps
 
           {/* Actions */}
           <div className="flex items-center space-x-5">
-            <div className="hidden lg:flex bg-white/10 px-4 py-2 rounded-full border border-white/10 items-center gap-2 mr-2">
+            <button 
+              onClick={() => setViewState({ name: 'home' })}
+              className="hidden lg:flex bg-white/10 px-4 py-2 rounded-full border border-white/10 items-center gap-2 mr-2 hover:bg-white/20 transition-colors cursor-pointer"
+            >
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
               <span className="text-xs uppercase font-bold tracking-tighter text-white">Live Drops</span>
-            </div>
+            </button>
             <button className="text-white hover:text-brand transition-colors p-2 hidden sm:block">
               <Search className="w-5 h-5" />
             </button>
@@ -74,6 +77,12 @@ export function Header({ cartItemCount, setViewState, currentView }: HeaderProps
               onClick={() => setViewState({ name: 'admin' })}
             >
               <Shield className="w-5 h-5" />
+            </button>
+            <button 
+              className={`transition-colors p-2 ${currentView.name === 'orders' ? 'text-orange-400' : 'text-white hover:text-brand'}`}
+              onClick={() => setViewState({ name: 'orders' })}
+            >
+              <Package className="w-5 h-5" />
             </button>
             <button 
               className={`transition-colors p-2 relative group ${currentView.name === 'cart' ? 'text-orange-400' : 'text-white hover:text-brand'}`}

@@ -19,9 +19,11 @@ export interface CartItem {
 export interface Review {
     id: string;
     productId: string;
+    userId?: string;
+    userName?: string;
     rating: number;
     text: string;
-    date: string;
+    createdAt?: any;
 }
 
 export type ViewState = 
@@ -30,4 +32,5 @@ export type ViewState =
   | { name: 'cart' }
   | { name: 'checkout' }
   | { name: 'admin' }
+  | { name: 'orders' }
   | { name: 'wishlist' };

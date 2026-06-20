@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ShoppingBag, Truck, ShieldCheck, ChevronRight, Camera, X, Heart, Star } from 'lucide-react';
 import { products } from '../data';
 import { ViewState, CartItem, Product, Review } from '../types';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, onSnapshot, query, where, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { ContactShadows, Environment, Float, PresentationControls, Image as DreiImage, useGLTF, Bounds, useBounds, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -168,37 +171,52 @@ export function ProductDetail({ productId, setViewState, addToCart, wishlist, to
   }, []);
 
   useEffect(() => {
-    const allReviews = JSON.parse(localStorage.getItem('jutelelo_reviews') || '[]') as Review[];
-    setReviews(allReviews.filter(r => r.productId === productId));
+    const q = query(collection(db, 'reviews'), where('productId', '==', productId), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setReviews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
+    }, (error) => {
+      // index might be missing initially, handle gracefully
+      console.warn("Error fetching reviews:", error);
+    });
+    return unsubscribe;
   }, [productId]);
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReviewText.trim()) return;
 
-    const review: Review = {
-      id: crypto.randomUUID(),
-      productId,
-      rating: newRating,
-      text: newReviewText.trim(),
-      date: new Date().toLocaleDateString(),
-    };
+    if (!auth.currentUser) {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        console.error("Authentication failed", err);
+        return;
+      }
+    }
 
-    const updatedReviews = [...reviews, review];
-    setReviews(updatedReviews);
-
-    const allReviews = JSON.parse(localStorage.getItem('jutelelo_reviews') || '[]') as Review[];
-    localStorage.setItem('jutelelo_reviews', JSON.stringify([...allReviews, review]));
-
-    setNewReviewText('');
-    setNewRating(5);
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        productId,
+        userId: auth.currentUser?.uid,
+        userName: auth.currentUser?.displayName || auth.currentUser?.email || 'Anonymous',
+        rating: newRating,
+        text: newReviewText.trim(),
+        createdAt: serverTimestamp(),
+      });
+      setNewReviewText('');
+      setNewRating(5);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'reviews');
+      alert("Failed to submit review.");
+    }
   };
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     if (isTryOnOpen && videoRef.current) {
       setCameraError('');
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
         .then((s) => {
           stream = s;
           if (videoRef.current) {
@@ -460,12 +478,17 @@ export function ProductDetail({ productId, setViewState, addToCart, wishlist, to
               reviews.map(review => (
                 <div key={review.id} className="glass-panel p-6 rounded-3xl">
                   <div className="flex justify-between items-start mb-4">
-                    <div className="flex space-x-1 text-orange-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-orange-400' : 'text-slate-600'}`} />
-                      ))}
+                    <div>
+                      <div className="flex space-x-1 text-orange-400 mb-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-orange-400' : 'text-slate-600'}`} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-white/70 font-medium">{review.userName || 'Anonymous'}</span>
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">{review.date}</span>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                      {review.createdAt?.seconds ? new Date(review.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}
+                    </span>
                   </div>
                   <p className="text-slate-300 font-light text-sm">{review.text}</p>
                 </div>

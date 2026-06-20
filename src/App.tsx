@@ -13,6 +13,7 @@ import { Cart } from './views/Cart';
 import { Checkout } from './views/Checkout';
 import { Wishlist } from './views/Wishlist';
 import { Admin } from './views/Admin';
+import { Orders } from './views/Orders';
 import { ChatBot } from './components/ChatBot';
 import { ParticleBackground } from './components/ParticleBackground';
 import { ViewState, CartItem, Product } from './types';
@@ -145,6 +146,9 @@ export default function App() {
           )}
           {viewState.name === 'admin' && (
             <Admin key="admin" />
+          )}
+          {viewState.name === 'orders' && (
+            <Orders key="orders" />
           )}
         </AnimatePresence>
       </main>

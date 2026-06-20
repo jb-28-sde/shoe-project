@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 
 export function Admin() {
@@ -10,6 +10,8 @@ export function Admin() {
 
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -19,6 +21,29 @@ export function Admin() {
     category: 'sneakers',
     color: 'black'
   });
+
+  const handleEditProduct = (product: any) => {
+    setEditingProductId(product.id);
+    setNewProduct({
+      name: product.name || '',
+      price: product.price?.toString() || '',
+      image: product.image || '',
+      description: product.description || '',
+      category: product.category || 'sneakers',
+      color: product.color || 'black'
+    });
+    // Scroll to top or form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUpdateOrderStatus = async (id: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', id), { status: newStatus });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'orders');
+      alert('Error updating order status');
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((u) => {
@@ -65,20 +90,32 @@ export function Admin() {
     await signOut(auth);
   };
 
-  const handleAddProduct = async (e: React.FormEvent) => {
+  const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (!newProduct.name || !newProduct.price || !newProduct.image || !newProduct.description) return;
-      await addDoc(collection(db, 'products'), {
+      
+      const productData = {
         ...newProduct,
         price: parseFloat(newProduct.price),
-        createdAt: serverTimestamp()
-      });
+      };
+
+      if (editingProductId) {
+        await updateDoc(doc(db, 'products', editingProductId), productData);
+        alert('Product updated successfully');
+      } else {
+        await addDoc(collection(db, 'products'), {
+          ...productData,
+          createdAt: serverTimestamp()
+        });
+        alert('Product added correctly');
+      }
+      
+      setEditingProductId(null);
       setNewProduct({ name: '', price: '', image: '', description: '', category: 'sneakers', color: 'black' });
-      alert('Product added correctly');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'products');
-      alert('Error adding product');
+      handleFirestoreError(error, editingProductId ? OperationType.UPDATE : OperationType.CREATE, 'products');
+      alert('Error saving product');
     }
   };
 
@@ -119,6 +156,10 @@ export function Admin() {
     );
   }
 
+  const filteredOrders = orderFilter === 'all' 
+    ? orders 
+    : orders.filter(order => order.status === orderFilter || (orderFilter === 'pending' && !order.status));
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 text-white">
       <div className="flex justify-between items-end mb-12 border-b border-white/10 pb-6 text-white text-xs font-mono tracking-widest uppercase">
@@ -130,10 +171,13 @@ export function Admin() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* ADD PRODUCT */}
+        {/* ADD / EDIT PRODUCT */}
         <section className="bg-slate-800/20 backdrop-blur-md rounded-3xl p-8 border border-white/5">
-          <h2 className="font-mono text-sm uppercase tracking-widest mb-6 flex items-center"><span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>Add Product</h2>
-          <form onSubmit={handleAddProduct} className="space-y-4 font-mono text-sm">
+          <h2 className="font-mono text-sm uppercase tracking-widest mb-6 flex items-center">
+            <span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>
+            {editingProductId ? 'Update Product' : 'Add Product'}
+          </h2>
+          <form onSubmit={handleSubmitProduct} className="space-y-4 font-mono text-sm">
             <div>
               <label className="block text-white/50 mb-2 text-xs">Name</label>
               <input type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-white/20 focus:border-orange-500 outline-none transition-colors" required />
@@ -160,20 +204,40 @@ export function Admin() {
               <label className="block text-white/50 mb-2 text-xs">Description</label>
               <textarea value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} rows={3} className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-white/20 focus:border-orange-500 outline-none transition-colors" required />
             </div>
-            <button type="submit" className="w-full py-3 bg-white text-black font-mono text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-colors rounded-lg mt-4">
-              Publish Product
-            </button>
+            <div className="flex space-x-4">
+              <button type="submit" className="flex-1 py-3 bg-white text-black font-mono text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-colors rounded-lg mt-4">
+                {editingProductId ? 'Save Changes' : 'Publish Product'}
+              </button>
+              {editingProductId && (
+                <button type="button" onClick={() => { setEditingProductId(null); setNewProduct({ name: '', price: '', image: '', description: '', category: 'sneakers', color: 'black' }); }} className="py-3 px-6 bg-white/10 text-white font-mono text-xs uppercase tracking-widest hover:bg-white/20 transition-colors rounded-lg mt-4">
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </section>
 
         {/* ORDER HISTORY */}
         <section className="bg-slate-800/20 backdrop-blur-md rounded-3xl p-8 border border-white/5 flex flex-col h-[600px]">
-          <h2 className="font-mono text-sm uppercase tracking-widest mb-6 flex items-center"><span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>Recent Orders {orders.length > 0 && <span className="ml-3 text-white/40 text-xs">({orders.length})</span>}</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="font-mono text-sm uppercase tracking-widest flex items-center"><span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>Recent Orders {filteredOrders.length > 0 && <span className="ml-3 text-white/40 text-xs">({filteredOrders.length})</span>}</h2>
+            <select
+              value={orderFilter}
+              onChange={(e) => setOrderFilter(e.target.value)}
+              className="bg-black/40 border border-white/10 rounded px-3 py-1.5 text-white text-[10px] uppercase tracking-widest outline-none focus:border-orange-500 font-mono"
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-            {orders.length === 0 ? (
-              <p className="text-white/50 text-sm font-light">No orders yet.</p>
+            {filteredOrders.length === 0 ? (
+              <p className="text-white/50 text-sm font-light">No orders found.</p>
             ) : (
-              orders.map(order => (
+              filteredOrders.map(order => (
                 <div key={order.id} className="p-4 bg-black/30 border border-white/5 rounded-xl font-mono flex flex-col">
                   <div className="flex justify-between items-start mb-3 border-b border-white/10 pb-3">
                     <div>
@@ -184,6 +248,19 @@ export function Admin() {
                       <div className="text-orange-500">${order.total?.toFixed(2)}</div>
                       <div className="text-[10px] text-white/30 uppercase mt-1">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</div>
                     </div>
+                  </div>
+                  <div className="mb-3 border-b border-white/10 pb-3">
+                    <label className="text-[10px] text-white/50 uppercase mr-2">Status:</label>
+                    <select
+                      value={order.status || 'pending'}
+                      onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                      className="bg-black/40 border border-white/10 rounded px-2 py-1 text-white text-xs outline-none focus:border-orange-500"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     {order.items?.map((item: any, i: number) => (
@@ -222,7 +299,8 @@ export function Admin() {
                      <td className="py-4 pr-6">{product.name}</td>
                      <td className="py-4 pr-6">${product.price?.toFixed(2)}</td>
                      <td className="py-4 pr-6 capitalize">{product.category}</td>
-                     <td className="py-4 text-right">
+                     <td className="py-4 text-right space-x-2">
+                       <button onClick={() => handleEditProduct(product)} className="text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest text-[10px] bg-blue-400/10 hover:bg-blue-400/20 px-3 py-1.5 rounded">Edit</button>
                        <button onClick={() => handleDeleteProduct(product.id)} className="text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest text-[10px] bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded">Delete</button>
                      </td>
                    </tr>
